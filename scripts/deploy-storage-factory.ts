@@ -1,10 +1,7 @@
 import { ethers } from "ethers";
 import * as fs from "fs-extra";
 import { config as dotenvConfig } from "dotenv";
-import {
-    Contracts_extraStorage_sol_ExtraStorage,
-    Contracts_storageFactory_sol_StorageFactory,
-} from "../typechain-types";
+import { Contracts_storageFactory_sol_StorageFactory } from "../typechain-types";
 
 dotenvConfig({ path: ".env", quiet: true });
 
@@ -18,18 +15,6 @@ async function main() {
     }
 
     const wallet = new ethers.Wallet(privateKey, provider);
-
-    // const encryptedJson = fs.readFileSync("./.encryptedKey.json", "utf-8");
-
-    // const password = process.env.PRIVATE_KEY_PASSWORD;
-
-    // if (!password) {
-    //   throw new Error("private key not found");
-    // }
-
-    // let wallet = ethers.Wallet.fromEncryptedJsonSync(encryptedJson, password);
-
-    // wallet = wallet.connect(provider);
 
     const abi = JSON.parse(
         fs.readFileSync(
@@ -45,28 +30,62 @@ async function main() {
 
     const contractFactory = new ethers.ContractFactory(abi, binary, wallet);
 
-    console.log("Deploying, please wait...");
+    console.log("Deploying StorageFactory, please wait...");
 
     const contract =
         (await contractFactory.deploy()) as Contracts_storageFactory_sol_StorageFactory;
 
-    // await contract.waitForDeployment();
+    const deploymentTx = contract.deploymentTransaction();
 
-    await contract.deploymentTransaction()?.wait(1);
+    if (deploymentTx) {
+        await deploymentTx.wait(1);
+    }
 
-    console.log(`Contract deployed to ${contract.target}`);
+    console.log(`StorageFactory deployed to ${contract.target}`);
 
-    await contract.createSimpleStorageContract();
+    console.log("Creating SimpleStorage contract...");
 
-    await contract.storageFactoryStore(0, 7);
+    const createTx = await contract.createSimpleStorageContract();
+
+    await createTx.wait(1);
+
+    console.log("SimpleStorage contract created!");
+
+    console.log("Storing value in SimpleStorage contract...");
+
+    const storeTx = await contract.storageFactoryStore(0, 7);
+
+    await storeTx.wait(1);
 
     let address = await contract.simpleStorageArray(0);
 
-    console.log("Simple storage contract address is:", address);
+    console.log(`Simple storage contract address is: ${address}`);
 
     let simpleStorageIndexFavNumber = await contract.storageFactoryGet(0);
 
     console.log(`Simple storage fav number is: ${simpleStorageIndexFavNumber}`);
+
+    console.log("Creating second SimpleStorage contract...");
+
+    const createTx2 = await contract.createSimpleStorageContract();
+
+    await createTx2.wait(1);
+
+    console.log("Storing value in second SimpleStorage contract...");
+
+    const storeTx2 = await contract.storageFactoryStore(1, 42);
+
+    await storeTx2.wait(1);
+
+    let address2 = await contract.simpleStorageArray(1);
+
+    console.log(`Second simple storage contract address is: ${address2}`);
+
+    let simpleStorageIndexFavNumber2 = await contract.storageFactoryGet(1);
+
+    console.log(
+        `Second simple storage fav number is: ${simpleStorageIndexFavNumber2}`,
+    );
 }
 
 main()

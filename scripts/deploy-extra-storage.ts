@@ -1,92 +1,94 @@
-import { ethers } from "ethers"
-import * as fs from "fs-extra"
-import { config as dotenvConfig } from "dotenv"
-import {
-    Contracts_extraStorage_sol_ExtraStorage,
-} from "../typechain-types"
+import { ethers } from "ethers";
+import * as fs from "fs-extra";
+import { config as dotenvConfig } from "dotenv";
+import { Contracts_extraStorage_sol_ExtraStorage } from "../typechain-types";
 
-dotenvConfig({ path: ".env", quiet: true })
+dotenvConfig({ path: ".env", quiet: true });
 
 async function main() {
-    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL)
+    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 
-    const privateKey = process.env.PRIVATE_KEY
+    const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
-        throw new Error("private key not found")
+        throw new Error("private key not found");
     }
 
-    const wallet = new ethers.Wallet(privateKey, provider)
-
-    // const encryptedJson = fs.readFileSync("./.encryptedKey.json", "utf-8");
-
-    // const password = process.env.PRIVATE_KEY_PASSWORD;
-
-    // if (!password) {
-    //   throw new Error("private key not found");
-    // }
-
-    // let wallet = ethers.Wallet.fromEncryptedJsonSync(encryptedJson, password);
-
-    // wallet = wallet.connect(provider);
+    const wallet = new ethers.Wallet(privateKey, provider);
 
     const abi = JSON.parse(
         fs.readFileSync(
             "./build/contracts_extra-storage_sol_ExtraStorage.abi",
             "utf8",
         ),
-    )
+    );
 
     const binary = fs.readFileSync(
         "./build/contracts_extra-storage_sol_ExtraStorage.bin",
         "utf8",
-    )
+    );
 
-    const contractFactory = new ethers.ContractFactory(abi, binary, wallet)
+    const contractFactory = new ethers.ContractFactory(abi, binary, wallet);
 
-    console.log("Deploying, please wait...")
+    console.log("Deploying, please wait...");
 
     const contract =
-        (await contractFactory.deploy()) as Contracts_extraStorage_sol_ExtraStorage
+        (await contractFactory.deploy()) as Contracts_extraStorage_sol_ExtraStorage;
 
-    // await contract.waitForDeployment();
+    const deploymentTx = contract.deploymentTransaction();
 
-    await contract.deploymentTransaction()?.wait(1)
+    if (deploymentTx) {
+        await deploymentTx.wait(1);
+    }
 
-    console.log(`Contract deployed to ${contract.target}`)
+    console.log(`Contract deployed to ${contract.target}`);
 
-    await contract.addPerson("O'Brien", 7)
+    console.log("Testing basic functionality...");
 
-    console.log("Adding a person...")
+    let currentFavoriteNumber = await contract.retrieve();
 
-    let personFavNumber = await contract.nameToFavoriteNumber("O'Brien")
+    console.log(`Initial Favorite Number: ${currentFavoriteNumber}`);
 
-    console.log(`O'Brien's fav number is ${personFavNumber}`)
+    console.log("Storing favorite number...");
 
-    let people = await contract.people(0)
+    let storeTransaction = await contract.store(9);
 
-    console.log(
-        `This person's name is ${people.name} and their fav number is ${people.favoriteNumber}`,
-    )
+    await storeTransaction.wait(1);
 
-    let currentFavoriteNumber = await contract.retrieve()
+    currentFavoriteNumber = await contract.retrieve();
 
-    console.log(`Current Favorite Number: ${currentFavoriteNumber}`)
+    console.log(`New Favorite Number: ${currentFavoriteNumber}`);
 
-    console.log("Updating favorite number...")
+    console.log("Adding a person...");
 
-    let transactionResponse = await contract.store(9)
+    try {
+        const addPersonTransaction = await contract.addPerson("O'Brien", 7);
 
-    await transactionResponse.wait()
+        await addPersonTransaction.wait(1);
 
-    currentFavoriteNumber = await contract.retrieve()
+        console.log("Person added successfully!");
 
-    console.log(`New Favorite Number: ${currentFavoriteNumber}`)
+        let personFavNumber = await contract.nameToFavoriteNumber("O'Brien");
+
+        console.log(`O'Brien's fav number is ${personFavNumber}`);
+
+        if (personFavNumber > 0) {
+            let people = await contract.people(0);
+
+            console.log(
+                `This person's name is ${people.name} and their fav number is ${people.favoriteNumber}`,
+            );
+        } else {
+            console.log("Warning: Person was not added correctly!");
+        }
+    } catch (error) {
+        console.error("Error adding person:", error);
+    }
 }
 
 main()
     .then(() => process.exit(0))
     .catch((error) => {
-        console.error(error)
-        process.exit(1)
-    })
+        console.error(error);
+        process.exit(1);
+    });
