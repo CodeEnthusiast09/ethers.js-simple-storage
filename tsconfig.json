@@ -1,10 +1,14 @@
 {
-  "compilerOptions": {
-    "target": "es2018",
-    "module": "commonjs",
-    "strict": true,
-    "esModuleInterop": true,
-    "outDir": "dist"
-  },
-  "files": ["./deploy.ts"]
+    "compilerOptions": {
+        "target": "es2018",
+        "module": "commonjs",
+        "strict": true,
+        "esModuleInterop": true,
+        "outDir": "dist"
+    },
+    "files": [
+        "scripts/deploy-simple-storage.ts",
+        "scripts/deploy-extra-storage.ts",
+        "scripts/deploy-storage-factory.ts"
+    ]
 }
